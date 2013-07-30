@@ -53,11 +53,6 @@ public class ThresuroWs {
     public Thesaurus getThesaurusById(@WebParam(name = "thesaurusId") long id){
         return thesauroModel.getThesaurusById(id);
     }
-    
-    @WebMethod(operationName = "createGeneralTerm")
-    public long createGeneralTerm(String identifier){
-        return thesauroModel.getThesaurusById(id);
-    }
         
     
 }

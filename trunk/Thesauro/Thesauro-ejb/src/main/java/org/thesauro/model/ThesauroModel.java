@@ -11,9 +11,11 @@ import javax.ejb.EJB;
 import javax.ejb.LocalBean;
 import javax.ejb.Singleton;
 import org.thesauro.business.GeneralTermHandlerLocal;
+import org.thesauro.business.RelatedTermHandlerLocal;
 import org.thesauro.business.SpecificTermHandlerLocal;
 import org.thesauro.business.ThesaurusHandlerLocal;
 import org.thesauro.entity.GeneralTerm;
+import org.thesauro.entity.RelatedTerm;
 import org.thesauro.entity.SpecificTerm;
 import org.thesauro.entity.Thesaurus;
 import org.thesauro.util.AttributeCoppier;
@@ -39,6 +41,9 @@ public class ThesauroModel {
     
     @EJB
     private SpecificTermHandlerLocal specificTermHandler;
+    
+    @EJB
+    private RelatedTermHandlerLocal relatedTermHandler;
     
     @PostConstruct
     private void initialize(){
@@ -71,6 +76,22 @@ public class ThesauroModel {
                 break;
             }
         }
+    }
+    
+    public Thesaurus getThesaurusBySpecificTermId(long specificTermId){
+        Collection<Thesaurus> aux = getThesaurusListCopy();
+        for (Thesaurus thesaurus : aux) {
+            Collection<GeneralTerm> generalTerms = thesaurus.getGeneralTerms();
+            for (GeneralTerm generalTerm : generalTerms) {
+                Collection<SpecificTerm> specificTerms = generalTerm.getSpecificTerms();
+                for (SpecificTerm specificTerm : specificTerms) {
+                    if(specificTerm.getId().longValue()==specificTermId){
+                        return thesaurus;
+                    }
+                }
+            }
+        }
+        return null;
     }
     
     public Thesaurus getThesaurusByGeneralTermId(long generalTermId){
@@ -141,12 +162,57 @@ public class ThesauroModel {
         if(thesaurus==null){
             throw new IllegalArgumentException("Thesaurus not found with general term of id: " + generalTermId);
         }
-        newTerm = this.generalTermHandler.createGeneralTerm(newTerm);
-//        GeneralTerm modelInstance = new GeneralTerm();
-//        copyAttributesFromFirstToSecond(newTerm, modelInstance);
-//        thesaurus.getGeneralTerms().add(modelInstance);
-//        this.updateThesaurus(thesaurus);
-        return null;
+        newTerm = this.specificTermHandler.createSpecificTerm(newTerm);
+        SpecificTerm modelInstance = new SpecificTerm();
+        copyAttributesFromFirstToSecond(newTerm, modelInstance);
+        Collection<GeneralTerm> generalTherms = thesaurus.getGeneralTerms();
+        for (GeneralTerm generalTerm : generalTherms) {
+            if(generalTerm.getId().longValue()==generalTermId){
+                generalTerm.getSpecificTerms().add(modelInstance);
+            }
+        }
+        this.updateThesaurus(thesaurus);
+        return modelInstance;
+    }
+    
+    public RelatedTerm createRelatedTermAndAddToSpecificTerm(long specificTermId, RelatedTerm newTerm) throws IllegalArgumentException{
+        Thesaurus thesaurus = getThesaurusBySpecificTermId(specificTermId);
+        if(thesaurus==null){
+            throw new IllegalArgumentException("Thesaurus not found with general term of id: " + specificTermId);
+        }
+        newTerm = this.relatedTermHandler.createRelatedTerm(newTerm);
+        RelatedTerm modelInstance = new RelatedTerm();
+        copyAttributesFromFirstToSecond(newTerm, modelInstance);
+        Collection<GeneralTerm> generalTherms = thesaurus.getGeneralTerms();
+        for (GeneralTerm generalTerm : generalTherms) {
+            Collection<SpecificTerm> specificTerms =  generalTerm.getSpecificTerms();
+            for (SpecificTerm specificTerm : specificTerms) {
+                if(specificTerm.getId()==specificTermId){
+                    specificTerm.getRelatedTerms().add(modelInstance);
+                }
+            }
+        }
+        this.updateThesaurus(thesaurus);
+        return modelInstance;
+        
+    }
+    
+    private void copyAttributesFromFirstToSecond(RelatedTerm firstOne, RelatedTerm secondOne){
+        try{
+            AttributeCoppier.copyAttributesWithSameName(firstOne, secondOne);
+        }
+        catch(Exception e){
+            LOGGER.error("Error copying attributes", e);
+        }
+    }
+    
+    private void copyAttributesFromFirstToSecond(SpecificTerm firstOne, SpecificTerm secondOne){
+        try{
+            AttributeCoppier.copyAttributesWithSameName(firstOne, secondOne);
+        }
+        catch(Exception e){
+            LOGGER.error("Error copying attributes", e);
+        }
     }
     
     private void copyAttributesFromFirstToSecond(GeneralTerm firstOne, GeneralTerm secondOne){
